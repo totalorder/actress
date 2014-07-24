@@ -1,6 +1,3 @@
-actress
-=======
-```python
 # encoding: utf-8
 from scheduler import Scheduler
 
@@ -33,4 +30,3 @@ def producer(s, pid):
 s = Scheduler(poolsize=4)
 producer_pid = s.spawn(producer)
 s.run()
-```
