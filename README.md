@@ -1,14 +1,13 @@
 actress
 =======
 ```python
-# encoding: utf-8
 from scheduler import Scheduler
 
 def consumer(s, pid, producer_pid):
     while 1:
         msg = yield
 
-        if msg is s.die:
+        if msg is s.sentinel:
             break
         print u"consumer received message: %s" % msg
         s.send(producer_pid, u"hello from %s!" % pid)
@@ -28,9 +27,9 @@ def producer(s, pid):
         print u"producer received message: %s" % message
         messages -= 1
     for child_pid in child_pids:
-        s.send(child_pid, s.die)
+        s.send(child_pid, s.sentinel)
 
-s = Scheduler(poolsize=4)
+s = Scheduler(pool_size=4)
 producer_pid = s.spawn(producer)
 s.run()
 ```
