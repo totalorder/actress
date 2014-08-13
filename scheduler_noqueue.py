@@ -1,28 +1,7 @@
 # encoding: utf-8
-from collections import deque
-import os
-import pstats
 import threading
-#import logging
-import cProfile
-#deque
-import sys
-import thread
-import time
-import threadprof
-import signal
-
-#print sys.version
-stm = 0
-try:
-    from __pypy__.thread import atomic
-    stm = 1
-except ImportError:
-    #print "Couldn't import __pypy__.thread.atomic, using thread.allocate_lock()"
-    atomic = thread.allocate_lock()
-
-tprof = threadprof.ThreadProfiler()
-
+from Queue import Queue
+import logging
 
 class Worker(threading.Thread):
     def __init__(self, sentinel, dead_task_callback, ownership_lock_queue, message_queues, *args, **kwargs):
@@ -39,13 +18,11 @@ class Worker(threading.Thread):
             try:
                 pid = self.ownership_lock_queue.pop(0)
                 if pid is self.sentinel:
-                    #logging.info("worker %s: runs %s useful %s" % (self.ident, self.stat_runs, self.stat_useful_runs))
+                    logging.info("worker %s: runs %s useful %s" % (self.ident, self.stat_runs, self.stat_useful_runs))
                     return
                 self.stat_runs += 1
                 try:
                     task, message = self.message_queues[pid].pop(0)
-                    #sys.stdout.write('o')
-
                     self.stat_useful_runs += 1
                     try:
                         task.send(message)
@@ -53,15 +30,10 @@ class Worker(threading.Thread):
                     except StopIteration:
                         self.dead_task_callback(pid)
                 except IndexError:
-                    #sys.stdout.write('-')
                     self.ownership_lock_queue.append(pid)
-                    if not stm:
-                        time.sleep(0)
             except IndexError:
                 pass
 
-if os.getenv('PROFILE', None):
-    Worker.run = tprof.getProfiledRun(Worker)
 
 class Scheduler:
     def __init__(self, pool_size=4):
@@ -78,17 +50,7 @@ class Scheduler:
             w = Worker(self.sentinel, self.dead_task, self.ownership_lock_queue, self.message_queues)
             self.pool.append(w)
         [w.start() for w in self.pool]
-        if os.getenv('CONT'):
-            #print "setting up sighandler on %s" % threading.currentThread()
-            def signal_handler(signal, frame):
-                #with atomic:
-                [self.ownership_lock_queue.append(self.sentinel) for _ in self.pool]
-            signal.signal(signal.SIGINT, signal_handler)
-            print('Press Ctrl+C')
-            signal.pause()
-        else:
-            [w.join() for w in self.pool]
-        #tprof.dumpProfile()
+        [w.join() for w in self.pool]
 
     def dead_task(self, task_id):
         del self.tasks[task_id]
